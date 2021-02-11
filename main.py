@@ -1,5 +1,7 @@
-import pandas as pd
 import re
+from collections import Counter
+
+import pandas as pd
 
 
 def new_name(name_list: list) -> list:
@@ -12,6 +14,7 @@ def new_name(name_list: list) -> list:
     for i in name_list:
         string_fio = ""
         if isinstance(i, float):
+            result_arr.append("")
             continue
         if i.find(".,") != -1:
             i = i.replace(".,", ".")
@@ -34,5 +37,46 @@ def new_name(name_list: list) -> list:
 
 def main():
     df = pd.read_excel("data.xlsx")
+    result_dict = {}
+    new_dict = {}
+    result_list_name, result_list_university = [], []
     name_list = df['Авторы'].to_list()
-    new_name(name_list)
+    university = df['Университет'].to_list()
+    country = df['Страна'].to_list()
+    name_list_set = list(set(name_list))
+
+    for i in name_list_set:
+        new_dict |= {i: []}
+    for key, item in new_dict.items():
+        for i in range(len(name_list)):
+            if name_list[i] == key:
+                item.append(university[i])
+
+    for key, item in new_dict.items():
+        for i in item:
+            if i == "Omsk State Tech Univ" and len(set(item)) > 1:
+                result_dict |= {key: "Omsk State Tech Univ+"}
+                break
+            elif i == "Omsk State Tech Univ" and len(set(item)) == 1:
+                result_dict |= {key: "Omsk State Tech Univ"}
+                break
+            else:
+                cnt = Counter(item)
+                result_dict |= {key: list(cnt.keys())[0] + "+"}
+                break
+
+    for key, item in result_dict.items():
+        result_list_name.append(key)
+        result_list_university.append(item)
+
+    df_name_university = pd.DataFrame({"Автор": result_list_name, "Университет": result_list_university})
+    df_country = pd.DataFrame({"Страна": country, "Автор": name_list})
+    result_name_university_country = pd.merge(left=df_name_university, right=df_country, left_on="Автор",
+                                              right_on="Автор")
+    list_new_name = result_name_university_country["Автор"].to_list()
+    list_new_country = result_name_university_country["Страна"].to_list()
+    list_new_university = result_name_university_country["Университет"].to_list()
+    list_new_name = new_name(list_new_name)
+    result = pd.DataFrame({"Автор": list_new_name, "Университет": list_new_university, "Страна": list_new_country})
+    result = result.drop_duplicates(keep="last")
+    result.to_excel("result_new_new.xlsx", index=False)
